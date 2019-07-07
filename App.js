@@ -43,7 +43,9 @@ const {
   sub,
   neq,
   greaterThan,
-  debug
+  debug,
+  divide,
+  round
 } = Animated;
 
 import { interpolateColor } from 'react-native-redash';
@@ -222,7 +224,6 @@ class App extends Component {
     const _clock = new Clock();
     const _state = new Value(-1);
     const _transX = new Value();
-    const _isForward = new Value(0);
 
     this._selectedIndex = new Value(-1);
 
@@ -254,11 +255,6 @@ class App extends Component {
         cond(
           eq(_state, State.ACTIVE),
           [
-            cond(
-              greaterThan(_transX, _offsetX),
-              set(_isForward, 1),
-              set(_isForward, 0)
-            ),
             stopClock(_clock),
             set(
               _transX,
@@ -284,19 +280,11 @@ class App extends Component {
                       runTiming(
                         _clock,
                         _transX,
-                        cond(
-                          eq(_isForward, 1),
-                          add(
-                            _transX,
-                            sub(
-                              THUMB_EMOJI_WIDTH + EMOJI_PADDING,
-                              modulo(_transX, THUMB_EMOJI_WIDTH + EMOJI_PADDING)
-                            )
+                        multiply(
+                          round(
+                            divide(_transX, THUMB_EMOJI_WIDTH + EMOJI_PADDING)
                           ),
-                          sub(
-                            _transX,
-                            modulo(_transX, THUMB_EMOJI_WIDTH + EMOJI_PADDING)
-                          )
+                          THUMB_EMOJI_WIDTH + EMOJI_PADDING
                         )
                       ),
                       _transX
