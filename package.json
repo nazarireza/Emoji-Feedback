@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "flubber": "^0.4.2",
+    "jetifier": "^1.6.1",
     "react": "16.8.6",
     "react-native": "0.60.0",
     "react-native-gesture-handler": "^1.3.0",
