@@ -45,7 +45,8 @@ const {
   greaterThan,
   debug,
   divide,
-  round
+  round,
+  abs
 } = Animated;
 
 import { interpolateColor } from 'react-native-redash';
@@ -136,7 +137,7 @@ const EMOJI_WIDTH = 70,
 const EmojiPlaceholder = ({ d: { eye1, eye2, lip }, scale, text, onPress }) => {
   let bottom = interpolate(scale, {
     inputRange: [0, 1],
-    outputRange: [-60, -20],
+    outputRange: [115, 90],
     extrapolate: Extrapolate.Clamp
   });
 
@@ -167,7 +168,12 @@ const EmojiPlaceholder = ({ d: { eye1, eye2, lip }, scale, text, onPress }) => {
           </Svg>
         </TouchableOpacity>
       </Animated.View>
-      <Animated.Text style={[styles.emojiText, { color, bottom }]}>
+      <Animated.Text
+        style={[
+          styles.emojiText,
+          { color, transform: [{ translateY: bottom }] }
+        ]}
+      >
         {text}
       </Animated.Text>
     </View>
@@ -218,12 +224,27 @@ class App extends Component {
   constructor() {
     super();
 
+    this.translateXOnChange = ([translateX]) => {
+      let _progress =
+        (translateX % (THUMB_EMOJI_WIDTH + EMOJI_PADDING)) /
+        (THUMB_EMOJI_WIDTH + EMOJI_PADDING);
+
+      let _selectedIndex = Math.floor(
+        translateX / (THUMB_EMOJI_WIDTH + EMOJI_PADDING)
+      );
+
+      this.path.setNativeProps({
+        d: EMOJIS_PATH[_selectedIndex](_progress.toFixed(1))
+      });
+    };
+
     const _dragX = new Value(0);
     const _dragVX = new Value(0);
     const _offsetX = new Value(0);
     const _clock = new Clock();
     const _state = new Value(-1);
     const _transX = new Value();
+    const _lastCall = new Value(0);
 
     this._selectedIndex = new Value(-1);
 
@@ -250,6 +271,16 @@ class App extends Component {
             set(this._selectedIndex, -1),
             set(_offsetX, _transX)
           ]),
+          cond(
+            greaterThan(
+              abs(sub(_transX, _lastCall)),
+              (THUMB_EMOJI_WIDTH + EMOJI_PADDING) / 4
+            ),
+            [
+              set(_lastCall, _transX),
+              call([_lastCall], this.translateXOnChange)
+            ]
+          ),
           _transX
         ],
         cond(
@@ -262,7 +293,18 @@ class App extends Component {
                 max(0, add(_dragX, _offsetX)),
                 4 * THUMB_EMOJI_WIDTH + 4 * EMOJI_PADDING
               )
-            )
+            ),
+            cond(
+              greaterThan(
+                abs(sub(_transX, _lastCall)),
+                (THUMB_EMOJI_WIDTH + EMOJI_PADDING) / 10
+              ),
+              [
+                set(_lastCall, _transX),
+                call([_lastCall], this.translateXOnChange)
+              ]
+            ),
+            _transX
           ],
           [
             set(
@@ -277,16 +319,26 @@ class App extends Component {
                         modulo(_transX, THUMB_EMOJI_WIDTH + EMOJI_PADDING),
                         0
                       ),
-                      runTiming(
-                        _clock,
-                        _transX,
-                        multiply(
-                          round(
-                            divide(_transX, THUMB_EMOJI_WIDTH + EMOJI_PADDING)
-                          ),
-                          THUMB_EMOJI_WIDTH + EMOJI_PADDING
-                        )
-                      ),
+                      [
+                        set(
+                          _lastCall,
+                          runTiming(
+                            _clock,
+                            _transX,
+                            multiply(
+                              round(
+                                divide(
+                                  _transX,
+                                  THUMB_EMOJI_WIDTH + EMOJI_PADDING
+                                )
+                              ),
+                              THUMB_EMOJI_WIDTH + EMOJI_PADDING
+                            )
+                          )
+                        ),
+                        call([_lastCall], this.translateXOnChange),
+                        _lastCall
+                      ],
                       _transX
                     )
                   ],
@@ -306,20 +358,6 @@ class App extends Component {
       }
     ]);
   }
-
-  translateXOnChange = ([translateX]) => {
-    let _progress =
-      (translateX % (THUMB_EMOJI_WIDTH + EMOJI_PADDING)) /
-      (THUMB_EMOJI_WIDTH + EMOJI_PADDING);
-
-    let _selectedIndex = Math.floor(
-      translateX / (THUMB_EMOJI_WIDTH + EMOJI_PADDING)
-    );
-
-    this.path.setNativeProps({
-      d: EMOJIS_PATH[_selectedIndex](_progress.toFixed(1))
-    });
-  };
 
   render() {
     let color = interpolateColor(
@@ -342,9 +380,6 @@ class App extends Component {
 
     return (
       <View style={styles.container}>
-        <Animated.Code>
-          {() => call([this._translateX], this.translateXOnChange)}
-        </Animated.Code>
         <Text style={styles.titleText}>How was the help you received?</Text>
         <View style={styles.emojisContainer}>
           <View style={styles.centerLine} />
@@ -392,7 +427,11 @@ class App extends Component {
               ]}
             >
               <Svg width={50} height={50} viewBox="0 0 34 33">
-                <Path ref={ref => (this.path = ref)} fill="#665E53" />
+                <Path
+                  ref={ref => (this.path = ref)}
+                  d={EMOJIS_PATH[2](0)}
+                  fill="#665E53"
+                />
               </Svg>
             </Animated.View>
           </PanGestureHandler>
